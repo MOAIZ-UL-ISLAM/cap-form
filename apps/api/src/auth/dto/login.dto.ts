@@ -1,16 +1,13 @@
-// apps/api/src/auth/dto/login.dto.ts
+// src/auth/dto/login.dto.ts
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsString, Matches } from 'class-validator';
+import { IsNotEmpty, IsString } from 'class-validator';
 
 export class LoginDto {
-    @ApiProperty({ example: 'TIGCAP6003352' })
-    @IsString()
-    @IsNotEmpty()
-    @Matches(/^TIGCAP\d{7}$/, { message: 'Invalid User ID format' })
+    @ApiProperty({ example: 'TIGCAP1234567' })
+    @IsString() @IsNotEmpty()
     userId: string;
 
     @ApiProperty()
-    @IsString()
-    @IsNotEmpty()
+    @IsString() @IsNotEmpty()
     password: string;
 }

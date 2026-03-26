@@ -1,13 +1,15 @@
-// apps/api/src/auth/auth.module.ts
+// src/auth/auth.module.ts
 import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import type { StringValue } from 'ms';
-import { MailModule } from '../mail/mail.module';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
+import { MailModule } from '../mail/mail.module';
+import { AuditModule } from '../audit/audit.module';
+import { GeoModule } from '../geo/geo.module';
 
 @Module({
     imports: [
@@ -22,6 +24,8 @@ import { JwtStrategy } from './strategies/jwt.strategy';
             }),
         }),
         MailModule,
+        AuditModule,
+        GeoModule,
     ],
     controllers: [AuthController],
     providers: [AuthService, JwtStrategy],

@@ -1,36 +1,25 @@
-// apps/web/src/types/auth.types.ts
-export type Title = 'MR' | 'MRS' | 'MS' | 'DR' | 'PROF' | 'LORD' | 'LADY' | 'REV';
-export type Gender = 'MALE' | 'FEMALE' | 'OTHER' | 'PREFER_NOT_TO_SAY';
-export type Country = 'ENGLAND' | 'WALES' | 'NORTHERN_IRELAND';
-export type DebtRange =
-    | 'LESS_THAN_5000'
-    | 'BETWEEN_5000_AND_20000'
-    | 'GREATER_THAN_20000';
+import type { Role } from "./user.types";
 
-export interface RegisterPayload {
-    title: Title;
-    firstName: string;
-    lastName: string;
-    gender: Gender;
-    phone: string;
-    email: string;
-    country: Country;
-    debtRange: DebtRange;
-    password: string;
-    confirmPassword: string;
-}
-
-export interface LoginPayload {
+export interface AuthUser {
     userId: string;
-    password: string;
+    email: string;
+    role: Role;
+    accessToken: string;
 }
 
 export interface LoginResponse {
     accessToken: string;
     userId: string;
+    email: string;
+    role: Role;
 }
 
-export interface AuthUser {
+export interface RegisterResponse {
     userId: string;
-    accessToken: string;
+    message: string;
+}
+
+export interface ActivateResponse {
+    message: string;
+    token: string;
 }

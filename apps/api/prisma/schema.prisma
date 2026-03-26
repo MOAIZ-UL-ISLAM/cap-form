@@ -1,15 +1,38 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
+// apps/api/prisma/schema.prisma
 
 generator client {
   provider = "prisma-client"
-  output   = "../generated/prisma"
+  output   = "../generated/prisma/client"
 }
 
 datasource db {
   provider = "postgresql"
+}
+
+// ─── Enums ────────────────────────────────────────────────────────────────────
+
+enum Role {
+  SUPER_ADMIN
+  MANAGER
+  PARTNER
+  CUSTOMER
+}
+
+enum AuditAction {
+  LOGIN
+  LOGOUT
+  ACCOUNT_CREATED
+  ACCOUNT_ACTIVATED
+  PASSWORD_SET
+  PASSWORD_CHANGED
+  USER_UPDATED
+  USER_DELETED
+  ASSOCIATION_CHANGED
+  FORM_CREATED
+  FORM_UPDATED
+  FORM_SUBMITTED
+  PDF_GENERATED
+  PDF_SENT
 }
 
 enum Title {
@@ -42,21 +65,102 @@ enum DebtRange {
   GREATER_THAN_20000
 }
 
+// ─── User ─────────────────────────────────────────────────────────────────────
+
 model User {
-  id           String    @id @default(uuid())
-  userId       String    @unique // e.g. TIGCAP6003352
-  title        Title
-  firstName    String
-  lastName     String
-  gender       Gender
-  phone        String
-  email        String    @unique
-  country      Country
-  debtRange    DebtRange
-  passwordHash String
-  isActive     Boolean   @default(true)
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  id           String  @id @default(uuid())
+  userId       String  @unique // TIGCAP + 7 digits
+  email        String  @unique
+  passwordHash String?
+  role         Role
+  isActive     Boolean @default(false)
+
+  // Activation / geo metadata
+  activatedAt       DateTime?
+  activationIp      String?
+  activationCity    String?
+  activationCountry String?
+
+  // Login tracking
+  lastLoginAt DateTime?
+  lastLoginIp String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Profile
+  profile UserProfile?
+
+  // Who created this user (manager/partner/superadmin)
+  createdById  String?
+  createdBy    User?   @relation("CreatedByUser", fields: [createdById], references: [id])
+  createdUsers User[]  @relation("CreatedByUser")
+
+  // Partner <-> Customer association
+  // A partner can have many customers
+  // A customer can have one partner (optional)
+  partnerId String? // only set on CUSTOMER users
+  partner   User?   @relation("PartnerCustomers", fields: [partnerId], references: [id])
+  customers User[]  @relation("PartnerCustomers")
+
+  // Tokens
+  activationTokens ActivationToken[]
+
+  // Audit
+  auditLogs AuditLog[] @relation("ActorLogs")
 
   @@map("users")
+}
+
+model UserProfile {
+  id     String @id @default(uuid())
+  userId String @unique
+
+  // REQUIRED FOR ALL CUSTOMERS
+  title     Title?
+  firstName String
+  lastName  String
+  gender    Gender?
+  phone     String?
+  email     String
+  country   Country?
+  debtRange DebtRange?
+
+  // OPTIONAL (for partners)
+  companyName String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_profiles")
+}
+
+// ─── Activation Token ─────────────────────────────────────────────────────────
+
+model ActivationToken {
+  id        String    @id @default(uuid())
+  token     String    @unique @default(uuid())
+  userId    String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("activation_tokens")
+}
+
+// ─── Audit Log ────────────────────────────────────────────────────────────────
+
+model AuditLog {
+  id          String      @id @default(uuid())
+  actorId     String?
+  actor       User?       @relation("ActorLogs", fields: [actorId], references: [id])
+  action      AuditAction
+  targetId    String? // userId or formId being acted upon
+  description String
+  metadata    Json?
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime    @default(now())
+
+  @@map("audit_logs")
 }

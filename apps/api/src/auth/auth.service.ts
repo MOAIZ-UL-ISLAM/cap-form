@@ -1,19 +1,24 @@
-// apps/api/src/auth/auth.service.ts
+// src/auth/auth.service.ts
 import {
+    BadRequestException,
     ConflictException,
     Injectable,
     Logger,
     UnauthorizedException,
 } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
-import { JwtPayload } from '../common/types/jwt-payload.type';
+import type { Request } from 'express';
+import { AuditService } from '../audit/audit.service';
+import { GeoService } from '../geo/geo.service';
 import { MailService } from '../mail/mail.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { LoginDto } from './dto/login.dto';
-import { RegisterDto } from './dto/register.dto';
+import type { JwtPayload } from '../common/types/jwt-payload.type';
+import type { LoginDto } from './dto/login.dto';
+import type { RegisterSelfDto } from './dto/register-self.dto';
+import type { SetPasswordDto } from './dto/set-password.dto';
 import { generateUserId } from './helpers/user-id.helper';
+import { AuditAction, Role } from '../../generated/prisma/client/enums';
 
 const BCRYPT_ROUNDS = 12;
 
@@ -25,108 +30,256 @@ export class AuthService {
         private readonly prisma: PrismaService,
         private readonly jwtService: JwtService,
         private readonly mailService: MailService,
-        private readonly configService: ConfigService,
+        private readonly geoService: GeoService,
+        private readonly auditService: AuditService,
     ) { }
 
-    async register(dto: RegisterDto): Promise<{ message: string }> {
-        // 1. Check email uniqueness
+    // ── Customer self-register ─────────────────────────────────────────────────
+
+    async registerSelf(dto: RegisterSelfDto, req: Request) {
         const existing = await this.prisma.user.findUnique({
-            where: { email: dto.email.toLowerCase() },
-            select: { id: true },
+            where: { email: dto.email.toLowerCase().trim() },
         });
+        if (existing) throw new ConflictException('Email already registered');
 
-        if (existing) {
-            throw new ConflictException('An account with this email already exists');
-        }
-
-        // 2. Generate collision-safe userId
         const userId = await this.generateUniqueUserId();
-
-        // 3. Hash password
         const passwordHash = await bcrypt.hash(dto.password, BCRYPT_ROUNDS);
 
-        // 4. Persist user
         const user = await this.prisma.user.create({
             data: {
                 userId,
-                title: dto.title,
-                firstName: dto.firstName.trim(),
-                lastName: dto.lastName.trim(),
-                gender: dto.gender,
-                phone: dto.phone,
-                email: dto.email.toLowerCase(),
-                country: dto.country,
-                debtRange: dto.debtRange,
+                email: dto.email.toLowerCase().trim(),
                 passwordHash,
+                role: Role.CUSTOMER,
+                isActive: true,          // self-registered = immediately active
+                activatedAt: new Date(),
+                activationIp: this.geoService.extractIp(req),
+                profile: {
+                    create: {
+                        title: dto.title,
+                        firstName: dto.firstName,
+                        lastName: dto.lastName,
+                        gender: dto.gender,
+                        phone: dto.phone,
+                        email: dto.email,
+                        country: dto.country,
+                        debtRange: dto.debtRange,
+                    },
+                }
             },
-            select: { id: true, userId: true, firstName: true, email: true },
+            select: { id: true, userId: true, email: true },
         });
 
-        // 5. Send welcome email (non-blocking)
-        void this.mailService.sendWelcomeMail({
+        // Geo lookup (non-blocking)
+        // In registerSelf — replace the existing geo void block
+        void this.geoService.lookup(this.geoService.extractIp(req)).then(async (geo) => {
+            await this.prisma.user.update({
+                where: { id: user.id },
+                data: {
+                    activationIp: geo.ip,
+                    activationCity: geo.city,
+                    activationCountry: geo.country,
+                },
+            });
+        });
+
+        // Send welcome email — no partner association
+        void this.mailService.sendWelcomeCustomerSelf({
             to: user.email,
-            firstName: user.firstName,
+            firstName: dto.firstName,
             userId: user.userId,
-            password: dto.password, // plain text — one-time delivery only
+            password: dto.password, // plain — one-time delivery
         });
 
-        this.logger.log(`New user registered: ${user.userId}`);
+        void this.auditService.log({
+            actorId: user.id,
+            action: AuditAction.ACCOUNT_CREATED,
+            targetId: user.id,
+            description: `Customer ${user.email} self-registered`,
+            ipAddress: this.geoService.extractIp(req),
+        });
+
+        this.logger.log(`Customer self-registered: ${user.userId}`);
 
         return {
-            message:
-                'Registration successful. Please check your email for your login credentials.',
+            message: 'Account created. Check your email for your login credentials.',
+            userId: user.userId,
         };
     }
 
-    async login(dto: LoginDto): Promise<{ accessToken: string; userId: string }> {
-        // 1. Find user by custom userId
+    // ── Login (all roles) ──────────────────────────────────────────────────────
+
+    async login(dto: LoginDto, req: Request) {
+        const ip = this.geoService.extractIp(req);
+        const ua = req.headers['user-agent'] ?? '';
+
         const user = await this.prisma.user.findUnique({
             where: { userId: dto.userId },
             select: {
-                id: true,
-                userId: true,
-                email: true,
-                passwordHash: true,
-                isActive: true,
+                id: true, userId: true, email: true,
+                passwordHash: true, role: true, isActive: true,
             },
         });
 
-        if (!user || !user.isActive) {
+
+        this.logger.debug(`Login attempt: userId=${dto.userId}`);
+        this.logger.debug(`User found: ${!!user}`);
+        this.logger.debug(`isActive: ${user?.isActive}`);
+        this.logger.debug(`hasHash: ${!!user?.passwordHash}`);
+
+        if (!user || !user.isActive || !user.passwordHash) {
             throw new UnauthorizedException('Invalid credentials');
         }
 
-        // 2. Verify password
-        const isPasswordValid = await bcrypt.compare(dto.password, user.passwordHash);
-        if (!isPasswordValid) {
-            throw new UnauthorizedException('Invalid credentials');
-        }
+        const isValid = await bcrypt.compare(dto.password, user.passwordHash);
+        if (!isValid) throw new UnauthorizedException('Invalid credentials');
 
-        // 3. Sign JWT
+        await this.prisma.user.update({
+            where: { id: user.id },
+            data: { lastLoginAt: new Date(), lastLoginIp: ip },
+        });
+
+        const geo = await this.geoService.lookup(ip);
+
+        await this.prisma.user.update({
+            where: { id: user.id },
+            data: { lastLoginAt: new Date(), lastLoginIp: geo.ip },
+        });
+
+        void this.auditService.log({
+            actorId: user.id,
+            action: AuditAction.LOGIN,
+            description: `${user.role} ${user.userId} logged in from ${geo.city}, ${geo.country}`,
+            ipAddress: geo.ip,
+            userAgent: ua,
+            metadata: {
+                city: geo.city,
+                country: geo.country,
+                region: geo.region,
+                timezone: geo.timezone,
+                isp: geo.isp,
+            },
+        });
+
         const payload: JwtPayload = {
             sub: user.id,
             userId: user.userId,
             email: user.email,
+            role: user.role,
         };
 
-        const accessToken = this.jwtService.sign(payload);
+        this.logger.log(`Login: ${user.userId} [${user.role}]`);
 
-        this.logger.log(`User logged in: ${user.userId}`);
-
-        return { accessToken, userId: user.userId };
+        return {
+            accessToken: this.jwtService.sign(payload),
+            userId: user.userId,
+            role: user.role,
+            email: user.email,
+        };
     }
 
-    // ─── Private Helpers ──────────────────────────────────────────────────────
+    // ── Activate (customer clicks email link) ──────────────────────────────────
+
+    async activate(token: string, req: Request) {
+        const ip = this.geoService.extractIp(req);
+
+        const record = await this.prisma.activationToken.findUnique({
+            where: { token },
+            include: {
+                user: { select: { id: true, email: true, userId: true } },
+            },
+        });
+
+        if (!record) throw new BadRequestException('Invalid activation link');
+        if (record.usedAt) throw new BadRequestException('Link already used');
+        if (record.expiresAt < new Date()) {
+            throw new BadRequestException('Link expired. Contact your adviser.');
+        }
+
+        const geo = await this.geoService.lookup(ip);
+
+        await this.prisma.$transaction([
+            this.prisma.activationToken.update({
+                where: { id: record.id },
+                data: { usedAt: new Date() },
+            }),
+            this.prisma.user.update({
+                where: { id: record.userId },
+                data: {
+                    isActive: true,
+                    activatedAt: new Date(),
+                    activationIp: geo.ip,
+                    activationCity: geo.city,
+                    activationCountry: geo.country,
+                },
+            }),
+        ]);
+
+        void this.auditService.log({
+            actorId: record.userId,
+            action: AuditAction.ACCOUNT_ACTIVATED,
+            targetId: record.userId,
+            description: `${record.user.email} activated from ${geo.city}, ${geo.country}`,
+            ipAddress: ip,
+            metadata: { city: geo.city, country: geo.country, ip: geo.ip },
+        });
+
+        this.logger.log(
+            `Activated: ${record.user.email} from ${geo.city}, ${geo.country}`,
+        );
+
+        return {
+            message: 'Account activated. Please set your password.',
+            token, // pass back so frontend chains to set-password
+        };
+    }
+
+    // ── Set password (after activation via link) ───────────────────────────────
+
+    async setPassword(dto: SetPasswordDto) {
+        const record = await this.prisma.activationToken.findUnique({
+            where: { token: dto.token },
+            include: {
+                user: { select: { id: true, email: true, userId: true } },
+            },
+        });
+
+        if (!record) throw new BadRequestException('Invalid token');
+        if (!record.usedAt) {
+            throw new BadRequestException('Activate your account before setting a password');
+        }
+        if (record.expiresAt < new Date()) {
+            throw new BadRequestException('Token expired. Request a new activation link.');
+        }
+
+        const passwordHash = await bcrypt.hash(dto.password, BCRYPT_ROUNDS);
+
+        await this.prisma.user.update({
+            where: { id: record.userId },
+            data: { passwordHash },
+        });
+
+        void this.auditService.log({
+            actorId: record.userId,
+            action: AuditAction.PASSWORD_SET,
+            targetId: record.userId,
+            description: `${record.user.email} set their password`,
+        });
+
+        return { message: 'Password set. You can now log in.' };
+    }
+
+    // ── Private: generate collision-safe userId ────────────────────────────────
 
     private async generateUniqueUserId(): Promise<string> {
-        const MAX_ATTEMPTS = 5;
-        for (let i = 0; i < MAX_ATTEMPTS; i++) {
+        for (let i = 0; i < 5; i++) {
             const userId = generateUserId();
-            const collision = await this.prisma.user.findUnique({
+            const exists = await this.prisma.user.findUnique({
                 where: { userId },
                 select: { id: true },
             });
-            if (!collision) return userId;
+            if (!exists) return userId;
         }
-        throw new Error('Failed to generate unique userId after max attempts');
+        throw new Error('Could not generate unique userId');
     }
 }

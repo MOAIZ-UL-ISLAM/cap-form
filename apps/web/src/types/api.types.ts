@@ -1,4 +1,3 @@
-// apps/web/src/types/api.types.ts
 export interface ApiResponse<T = null> {
     success: boolean;
     message: string;

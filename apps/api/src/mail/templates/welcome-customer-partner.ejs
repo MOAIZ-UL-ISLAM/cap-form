@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: #0d1b2a;
+            margin: 0;
+            padding: 40px 20px
+        }
+
+        .card {
+            background: #162032;
+            max-width: 560px;
+            margin: 0 auto;
+            border-radius: 8px;
+            border: 1px solid #243447;
+            overflow: hidden
+        }
+
+        .header {
+            background: #1e2e42;
+            padding: 28px 32px;
+            border-bottom: 2px solid #c9a84c
+        }
+
+        .logo {
+            font-size: 20px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            color: #fff
+        }
+
+        .logo span {
+            color: #c9a84c
+        }
+
+        .body {
+            padding: 32px
+        }
+
+        h2 {
+            color: #fff;
+            font-size: 20px;
+            margin: 0 0 12px
+        }
+
+        p {
+            color: #8a9ab0;
+            font-size: 14px;
+            line-height: 1.7;
+            margin: 0 0 16px
+        }
+
+        .creds {
+            background: #0d1b2a;
+            border-radius: 6px;
+            padding: 16px 20px;
+            margin: 20px 0;
+            border: 1px solid #243447
+        }
+
+        .creds table {
+            width: 100%;
+            border-collapse: collapse
+        }
+
+        .creds td {
+            padding: 6px 0;
+            font-size: 14px;
+            color: #8a9ab0
+        }
+
+        .creds td:first-child {
+            font-weight: 600;
+            color: #c9a84c;
+            width: 140px
+        }
+
+        .footer {
+            padding: 20px 32px;
+            font-size: 11px;
+            color: #4a5a6a;
+            border-top: 1px solid #243447
+        }
+    </style>
+</head>
+
+<body>
+    <div class="card">
+        <div class="header">
+            <div class="logo"><span>TIG</span>CAP Portal</div>
+        </div>
+        <div class="body">
+            <h2>Hello <%= firstName %>,</h2>
+            <p>Your adviser <strong style="color:#c9a84c">
+                    <%= partnerName %>
+                </strong> has created a TIGCAP account on your behalf. Here are your credentials:</p>
+            <div class="creds">
+                <table>
+                    <tr>
+                        <td>User ID</td>
+                        <td><strong>
+                                <%= userId %>
+                            </strong></td>
+                    </tr>
+                    <tr>
+                        <td>Password</td>
+                        <td><strong>
+                                <%= password %>
+                            </strong></td>
+                    </tr>
+                    <tr>
+                        <td>Associated Adviser</td>
+                        <td>
+                            <%= partnerName %>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+            <p>Please log in and complete your fact-find form at your earliest convenience.</p>
+            <p>Login at: <a href="<%= loginUrl %>" style="color:#c9a84c">
+                    <%= loginUrl %>
+                </a></p>
+        </div>
+        <div class="footer">© <%= new Date().getFullYear() %> The Insolvency Group.</div>
+    </div>
+</body>
+
+</html>

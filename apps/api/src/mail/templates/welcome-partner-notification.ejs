@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: #0d1b2a;
+            margin: 0;
+            padding: 40px 20px
+        }
+
+        .card {
+            background: #162032;
+            max-width: 560px;
+            margin: 0 auto;
+            border-radius: 8px;
+            border: 1px solid #243447;
+            overflow: hidden
+        }
+
+        .header {
+            background: #1e2e42;
+            padding: 28px 32px;
+            border-bottom: 2px solid #c9a84c
+        }
+
+        .logo {
+            font-size: 20px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            color: #fff
+        }
+
+        .logo span {
+            color: #c9a84c
+        }
+
+        .body {
+            padding: 32px
+        }
+
+        h2 {
+            color: #fff;
+            font-size: 20px;
+            margin: 0 0 12px
+        }
+
+        p {
+            color: #8a9ab0;
+            font-size: 14px;
+            line-height: 1.7;
+            margin: 0 0 16px
+        }
+
+        .info {
+            background: #0d1b2a;
+            border-radius: 6px;
+            padding: 16px 20px;
+            margin: 20px 0;
+            border: 1px solid #243447
+        }
+
+        .info table {
+            width: 100%;
+            border-collapse: collapse
+        }
+
+        .info td {
+            padding: 6px 0;
+            font-size: 14px;
+            color: #8a9ab0
+        }
+
+        .info td:first-child {
+            font-weight: 600;
+            color: #c9a84c;
+            width: 120px
+        }
+
+        .footer {
+            padding: 20px 32px;
+            font-size: 11px;
+            color: #4a5a6a;
+            border-top: 1px solid #243447
+        }
+    </style>
+</head>
+
+<body>
+    <div class="card">
+        <div class="header">
+            <div class="logo"><span>TIG</span>CAP Portal</div>
+        </div>
+        <div class="body">
+            <h2>Customer Account Created</h2>
+            <p>You have successfully created a client account on TIGCAP. Here is a summary:</p>
+            <div class="info">
+                <table>
+                    <tr>
+                        <td>Client Name</td>
+                        <td>
+                            <%= customerFirstName %>
+                                <%= customerLastName %>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>Client Email</td>
+                        <td>
+                            <%= customerEmail %>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>Client User ID</td>
+                        <td><strong>
+                                <%= customerUserId %>
+                            </strong></td>
+                    </tr>
+                    <tr>
+                        <td>Created</td>
+                        <td>
+                            <%= new Date().toLocaleString('en-GB') %>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+            <p>The client has been sent their login credentials separately. You can track their form progress from your
+                dashboard.</p>
+        </div>
+        <div class="footer">© <%= new Date().getFullYear() %> The Insolvency Group.</div>
+    </div>
+</body>
+
+</html>
