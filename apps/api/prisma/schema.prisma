@@ -33,6 +33,9 @@ enum AuditAction {
   FORM_SUBMITTED
   PDF_GENERATED
   PDF_SENT
+  CUSTOMER_START_CREATED
+  CUSTOMER_START_UPDATED
+  CUSTOMER_START_SUBMITTED
 }
 
 enum Title {
@@ -63,6 +66,46 @@ enum DebtRange {
   LESS_THAN_5000
   BETWEEN_5000_AND_20000
   GREATER_THAN_20000
+}
+
+enum DebtAdviceFor {
+  ME
+  PARTNER_AND_ME
+}
+
+enum DebtAdviceReason {
+  REPAY_AS_MUCH_AS_POSSIBLE
+  DEBT_FREE_QUICKLY
+  DEBT_FREE_LOW_COST
+  BUDGETING_ADVICE
+  PROTECT_CREDIT_FILE
+  PROTECT_HOME_OR_ASSETS
+  STOP_CREDITOR_ACTION
+  SHORT_TERM_HELP
+  OTHER
+}
+
+enum DebtCause {
+  RELATIONSHIP_BREAKDOWN
+  REDUNDANCY_UNEMPLOYMENT
+  REDUCTION_IN_INCOME
+  BEREAVEMENT
+  PHYSICAL_HEALTH
+  MENTAL_HEALTH
+  DISABILITY
+  ADDICTION
+  GAMBLING
+  BORROWED_TOO_MUCH
+  MISMANAGEMENT_OF_MONEY
+  INCREASED_COST_OF_LIVING
+  OTHER
+}
+
+enum ResidentialStatus {
+  RENTING
+  HOUSE_OWNER
+  LIVING_WITH_PARENTS
+  LODGER_HOUSE_SHARE
 }
 
 // ─── User ─────────────────────────────────────────────────────────────────────
@@ -108,6 +151,9 @@ model User {
 
   // Audit
   auditLogs AuditLog[] @relation("ActorLogs")
+
+  // Form relation
+  customerStart CustomerStart? @relation("CustomerStartForm")
 
   @@map("users")
 }
@@ -163,4 +209,35 @@ model AuditLog {
   createdAt   DateTime    @default(now())
 
   @@map("audit_logs")
+}
+
+// ------------ Form Models ------------
+
+// --------customer start model
+model CustomerStart {
+  id         String @id @default(uuid())
+  customerId String @unique // one form per customer
+  customer   User   @relation("CustomerStartForm", fields: [customerId], references: [id], onDelete: Cascade)
+
+  // Step fields
+  debtAdviceFor           DebtAdviceFor
+  hadPreviousDebtSolution Boolean
+  hadBreathingSpace       Boolean
+  mainReason              DebtAdviceReason
+  debtCause               DebtCause
+  hasPersonalBarriers     Boolean
+  personalBarriersDetail  String? // required if hasPersonalBarriers = true
+  country                 Country
+  residentialStatus       ResidentialStatus
+  hadBailiffContact       Boolean
+
+  // Submission tracking
+  isSubmitted Boolean   @default(false)
+  submittedAt DateTime?
+  submittedIp String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("customer_start")
 }

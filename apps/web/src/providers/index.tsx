@@ -7,6 +7,7 @@ export function Providers({ children }: { children: ReactNode }) {
         <QueryProvider>
             {children}
             <ToastProvider />
+            {/* <TooltipProviderWrapper/> */}
         </QueryProvider>
     );
 }

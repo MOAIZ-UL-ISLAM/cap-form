@@ -16,6 +16,7 @@ import { MailModule } from './mail/mail.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
+import { CustomerStartModule } from './forms/customer-start/customer-start.module';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { UsersModule } from './users/users.module';
     MailModule,
     AuthModule,
     UsersModule,
+    CustomerStartModule,
   ],
   providers: [
     { provide: APP_FILTER, useClass: GlobalExceptionFilter },

@@ -15,10 +15,24 @@ import { useRegister } from '@/hooks/auth/useRegister';
 import type { Title, Gender, Country, DebtRange } from '@/types/user.types';
 import { TITLES, GENDERS, COUNTRIES, DEBT_RANGES } from '@/types/user.types';
 
-function Field({ label, error, children }: { label: string; error?: string; children: React.ReactNode }) {
+
+function Field({
+    label,
+    error,
+    required,
+    children
+}: {
+    label: string;
+    error?: string;
+    required?: boolean;
+    children: React.ReactNode
+}) {
     return (
         <div className="space-y-1.5">
-            <Label className="text-xs font-medium text-zinc-500 uppercase tracking-wide">{label}</Label>
+            <Label className="text-xs font-medium text-zinc-500 uppercase tracking-wide">
+                {label}
+                {required && <span className="text-red-700">*</span>}
+            </Label>
             {children}
             {error && <p className="text-xs text-red-500">{error}</p>}
         </div>
@@ -43,25 +57,25 @@ export function RegisterForm() {
             <form onSubmit={handleSubmit(v => reg.mutate(v))} className="space-y-4" noValidate>
                 {/* Title + First + Last */}
                 <div className="grid grid-cols-[90px_1fr_1fr] gap-3">
-                    <Field label="Title" error={errors.title?.message}>
+                    <Field label="Title" error={errors.title?.message} required>
                         <Select onValueChange={v => setValue('title', v as Title)}>
                             <SelectTrigger className="h-10 w-full"><SelectValue placeholder="Select" /></SelectTrigger>
-                            <SelectContent>
+                            <SelectContent >
                                 {TITLES.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
                             </SelectContent>
                         </Select>
                     </Field>
-                    <Field label="First Name" error={errors.firstName?.message}>
+                    <Field label="First Name" error={errors.firstName?.message} required>
                         <Input {...register('firstName')} placeholder="First name" className="h-10" />
                     </Field>
-                    <Field label="Last Name" error={errors.lastName?.message}>
+                    <Field label="Last Name" error={errors.lastName?.message} required>
                         <Input {...register('lastName')} placeholder="Last name" className="h-10" />
                     </Field>
                 </div>
 
                 {/* Gender + Phone */}
                 <div className="grid grid-cols-2 gap-1">
-                    <Field label="Gender" error={errors.gender?.message}>
+                    <Field label="Gender" error={errors.gender?.message} required>
                         <Select onValueChange={v => setValue('gender', v as Gender)}>
                             <SelectTrigger className="h-10 w-full"><SelectValue placeholder="Select" /></SelectTrigger>
                             <SelectContent>
@@ -69,19 +83,19 @@ export function RegisterForm() {
                             </SelectContent>
                         </Select>
                     </Field>
-                    <Field label="Phone" error={errors.phone?.message}>
+                    <Field label="Phone" error={errors.phone?.message} required>
                         <Input {...register('phone')} placeholder="+44XXXXXXXXXX" className="h-10" />
                     </Field>
                 </div>
 
                 {/* Email */}
-                <Field label="Email *" error={errors.email?.message}>
+                <Field label="Email" error={errors.email?.message} required>
                     <Input {...register('email')} type="email" placeholder="Email" className="h-10" />
                 </Field>
 
                 {/* Country + Debt Range */}
                 <div className="grid grid-cols-2 gap-3">
-                    <Field label="Country" error={errors.country?.message}>
+                    <Field label="Country" error={errors.country?.message} required>
                         <Select onValueChange={v => setValue('country', v as Country)}>
                             <SelectTrigger className="h-10 w-full"><SelectValue placeholder="Select" /></SelectTrigger>
                             <SelectContent>
@@ -89,7 +103,7 @@ export function RegisterForm() {
                             </SelectContent>
                         </Select>
                     </Field>
-                    <Field label="Debt Range" error={errors.debtRange?.message}>
+                    <Field label="Debt Range" error={errors.debtRange?.message} required>
                         <Select onValueChange={v => setValue('debtRange', v as DebtRange)}>
                             <SelectTrigger className="h-10 w-full "><SelectValue placeholder="Select" /></SelectTrigger>
                             <SelectContent>
@@ -101,7 +115,7 @@ export function RegisterForm() {
 
                 {/* Password + Confirm */}
                 <div className="grid grid-cols-2 gap-3">
-                    <Field label="Password" error={errors.password?.message}>
+                    <Field label="Password" error={errors.password?.message} required>
                         <div className="relative">
                             <Input {...register('password')} type={showP ? 'text' : 'password'}
                                 placeholder="Min 8 chars" className="h-10 pr-9" />
@@ -111,7 +125,7 @@ export function RegisterForm() {
                             </button>
                         </div>
                     </Field>
-                    <Field label="Confirm" error={errors.confirmPassword?.message}>
+                    <Field label="Confirm" error={errors.confirmPassword?.message} required>
                         <div className="relative">
                             <Input {...register('confirmPassword')} type={showC ? 'text' : 'password'}
                                 placeholder="Repeat" className="h-10 pr-9" />
